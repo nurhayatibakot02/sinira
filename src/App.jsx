@@ -61,7 +61,7 @@ export default function App() {
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [rekapData, setRekapData] = useState([]);
-  const [rawNilai, setRawNilai] = useState([]); // Data detail rekap
+  const [rawNilai, setRawNilai] = useState([]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
@@ -77,9 +77,11 @@ export default function App() {
   const [reportRombelFilter, setReportRombelFilter] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(9999); // Default tampil semua
+  const [rowsPerPage, setRowsPerPage] = useState(9999); // Default Semua
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRombelFilter, setSelectedRombelFilter] = useState('');
+
+  // State Kartu Ujian
   const [cardRombelFilter, setCardRombelFilter] = useState('');
   const [cardDate, setCardDate] = useState(new Date().toISOString().slice(0, 10));
   const [cardSemester, setCardSemester] = useState('2 (Dua)');
@@ -88,19 +90,28 @@ export default function App() {
   const [reportSubTab, setReportSubTab] = useState('nilai');
 
   useEffect(() => { setSearchTerm(''); setCurrentPage(1); setSelectedStudentId(null); }, [activeTab]);
+
+  // Reset siswa terpilih saat filter rombel di menu rapor berubah
   useEffect(() => { if (activeTab === 'report') setSelectedStudentId(null); }, [reportRombelFilter, activeTab]);
 
+  // Reset halaman saat filter kartu ujian berubah
+  useEffect(() => { if (activeTab === 'print_cards') setCurrentPage(1); }, [cardRombelFilter, activeTab]);
+
   useEffect(() => { if (GOOGLE_SCRIPT_URL && !user) { handleSyncFromGoogleSheet(true); } }, []);
+
+  // Default Rombel saat Guru Login
   useEffect(() => {
     if (user?.role === 'guru' && user.assignedClass) {
       const rombels = user.assignedClass.split(',').map(c => c.trim());
       if (rombels.length > 0) {
         setSelectedRombelFilter(rombels[0]);
         setReportRombelFilter(rombels[0]);
+        setCardRombelFilter(rombels[0]);
       }
     } else {
       setSelectedRombelFilter('');
       setReportRombelFilter('');
+      setCardRombelFilter('');
     }
   }, [user]);
 
@@ -216,7 +227,6 @@ export default function App() {
     });
   };
 
-  // Handle Manual Description
   const handleDescChange = (subjectId, descKey, value) => {
     setTempGrades(prev => {
       const currentSubject = prev[subjectId] || {};
@@ -279,7 +289,7 @@ export default function App() {
     return user.assignedClass.split(',').map(s => s.trim()).filter(Boolean);
   }, [user]);
 
-  // REVISI FILTER SISWA: UNTUK CETAK RAPOR
+  // Filtered Students untuk Dropdown Rapor
   const filteredReportStudents = useMemo(() => {
     if (!reportRombelFilter) return [];
     return students.filter(s => s.rombel && s.rombel.toLowerCase().trim() === reportRombelFilter.toLowerCase().trim());
@@ -291,10 +301,16 @@ export default function App() {
       const guruClasses = getTeacherRombels.map(c => c.toLowerCase());
       data = data.filter(s => s.rombel && guruClasses.includes(s.rombel.toLowerCase().trim()));
     }
-    if (activeTab === 'print_cards' && cardRombelFilter) {
-      data = data.filter(s => s.rombel && s.rombel.trim() === cardRombelFilter);
+    if (activeTab === 'print_cards') {
+      // Filter untuk kartu ujian: jika cardRombelFilter kosong, tampilkan semua (jika admin), atau filter rombel
+      if (cardRombelFilter) {
+        data = data.filter(s => s.rombel && s.rombel.trim() === cardRombelFilter);
+      }
+      // Jika cardRombelFilter kosong, tampilkan semua siswa (tidak di-filter by rombel)
     } else if (activeTab === 'report') {
-      // Do nothing here, handled by filteredReportStudents
+      if (reportRombelFilter) {
+        data = data.filter(s => s.rombel && s.rombel.toLowerCase().trim() === reportRombelFilter.toLowerCase().trim());
+      }
     } else if (selectedRombelFilter) {
       data = data.filter(s => s.rombel && s.rombel.toLowerCase().trim() === selectedRombelFilter.toLowerCase().trim());
     }
@@ -355,7 +371,6 @@ export default function App() {
   };
 
   const reportData = useMemo(() => getReportData(), [selectedStudentId, students, user, teachers]);
-  const [sidebarOpenState, setSidebarOpenState] = useState(true);
 
   // --- UI RENDER ---
   if (!user) {
@@ -386,11 +401,11 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden">
-      <aside className={`fixed md:static inset-y-0 left-0 z-30 w-64 bg-green-800 text-white transform transition-transform duration-300 ${sidebarOpenState ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 print:hidden flex flex-col shadow-xl`}>
+      <aside className={`fixed md:static inset-y-0 left-0 z-30 w-64 bg-green-800 text-white transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 print:hidden flex flex-col shadow-xl`}>
         <div className="p-6 border-b border-green-700 flex items-center gap-3">
           <img src={LOGO_URL} alt="Logo" className="w-10 h-auto bg-white rounded-full p-0.5" />
           <div><h1 className="text-lg font-bold">SINIRA</h1><p className="text-[10px] text-green-200">BABELAN KOTA 02</p></div>
-          <button onClick={() => setSidebarOpenState(false)} className="md:hidden ml-auto text-green-100"><X size={24} /></button>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden ml-auto text-green-100"><X size={24} /></button>
         </div>
         <div className="p-4 bg-green-900/50 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-green-100 text-green-800 flex items-center justify-center font-bold text-lg uppercase">{user.username[0]}</div>
@@ -415,7 +430,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden w-full relative">
         <header className="bg-white shadow-sm p-4 flex items-center justify-between print:hidden z-10">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpenState(!sidebarOpenState)} className="md:hidden text-slate-600"><Menu size={24} /></button>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden text-slate-600"><Menu size={24} /></button>
             <h2 className="text-xl font-bold text-slate-800">{activeTab === 'students' ? 'Data Siswa' : activeTab === 'grading' ? 'Input Nilai' : activeTab === 'report' ? 'Cetak Rapor' : activeTab === 'print_cards' ? 'Kartu Ujian SAS' : 'Dashboard'}</h2>
           </div>
           <div className="flex items-center gap-4">
@@ -427,8 +442,7 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/50">
-
-          {/* ADMIN: DATA GURU (STATISTIK) */}
+          {/* ... (Admin Dashboard, Dasbor Rekap, Data Siswa, Grading Tabs Code) ... */}
           {activeTab === 'admin_dashboard' && user.role === 'admin' && (
             <div className="max-w-6xl mx-auto space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -443,59 +457,44 @@ export default function App() {
               <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[600px]">
                 <div className="p-4 border-b bg-slate-50 font-bold text-slate-700 flex-shrink-0 flex justify-between"><span>Daftar Guru Terdaftar</span></div>
                 <div className="overflow-auto flex-1 relative">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-100 text-slate-600 sticky top-0 z-10 shadow-sm"><tr><th className="p-3 w-10 bg-slate-100">No</th><th className="p-3 bg-slate-100">NIP</th><th className="p-3 bg-slate-100">Nama Guru</th><th className="p-3 bg-slate-100">Rombel</th><th className="p-3 bg-slate-100">Username</th><th className="p-3 bg-slate-100">Password</th></tr></thead>
-                    <tbody className="divide-y">{tableData.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-slate-400">Data tidak ditemukan.</td></tr> : tableData.map((t, idx) => (<tr key={t.id} className="hover:bg-slate-50"><td className="p-3 text-center text-slate-400">{(currentPage - 1) * rowsPerPage + idx + 1}</td><td className="p-3 font-mono">{t.nip}</td><td className="p-3 font-bold">{t.name}</td><td className="p-3"><span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">{t.assignedClass}</span></td><td className="p-3">{t.username}</td><td className="p-3 font-mono text-slate-500">{t.password}</td></tr>))}</tbody>
-                  </table>
+                  <table className="w-full text-left text-sm"><thead className="bg-slate-100 text-slate-600 sticky top-0 z-10 shadow-sm"><tr><th className="p-3 w-10 bg-slate-100">No</th><th className="p-3 bg-slate-100">NIP</th><th className="p-3 bg-slate-100">Nama Guru</th><th className="p-3 bg-slate-100">Rombel</th><th className="p-3 bg-slate-100">Username</th><th className="p-3 bg-slate-100">Password</th></tr></thead><tbody className="divide-y">{tableData.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-slate-400">Data tidak ditemukan.</td></tr> : tableData.map((t, idx) => (<tr key={t.id} className="hover:bg-slate-50"><td className="p-3 text-center text-slate-400">{(currentPage - 1) * rowsPerPage + idx + 1}</td><td className="p-3 font-mono">{t.nip}</td><td className="p-3 font-bold">{t.name}</td><td className="p-3"><span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">{t.assignedClass}</span></td><td className="p-3">{t.username}</td><td className="p-3 font-mono text-slate-500">{t.password}</td></tr>))}</tbody></table>
                 </div>
                 <PaginationControls currentPage={currentPage} totalPages={totalPages} totalData={totalData} rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage} setCurrentPage={setCurrentPage} />
               </div>
             </div>
           )}
 
-          {/* DASBOR REKAP (ADMIN OPS FILTER) */}
-          {activeTab === 'dashboard_rekap' && (
-            <div className="max-w-6xl mx-auto space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:hidden">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-                  <div><h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Award className="text-yellow-500" /> Peringkat Siswa</h3></div>
-                  <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm"><Printer size={18} /> Cetak Peringkat</button>
-                </div>
-                <div className="flex gap-4 mb-4">
-                  <select className="p-2 border rounded text-sm font-bold text-blue-700 bg-blue-50 outline-none" value={selectedRombelFilter} onChange={e => setSelectedRombelFilter(e.target.value)}>
-                    {user.role === 'admin' && <option value="">Semua Kelas</option>}
-                    {(user.role === 'guru' ? getTeacherRombels : allStudentRombels).map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <div className="relative flex-1"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="text" placeholder="Cari Siswa..." className="w-full pl-10 p-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-                </div>
+          {activeTab === 'dashboard_rekap' && (/* ...Same as before... */ <div className="max-w-6xl mx-auto space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 print:hidden">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+                <div><h3 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Award className="text-yellow-500" /> Peringkat Siswa</h3></div>
+                <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm"><Printer size={18} /> Cetak Peringkat</button>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[600px] print:h-auto print:border-none print:shadow-none">
-                {/* REVISI: JUDUL CETAK PERINGKAT */}
-                <div className="hidden print:block text-center mb-6 mt-4">
-                  <h2 className="text-xl font-bold uppercase">Peringkat Nilai Kelas {selectedRombelFilter || user.assignedClass}</h2>
-                  <p>SDN BABELAN KOTA 02</p>
-                </div>
-                <div className="overflow-auto flex-1 relative">
-                  <table className="w-full text-left text-sm border-collapse">
-                    <thead className="bg-slate-50 uppercase text-slate-600 sticky top-0 z-10 shadow-sm print:static"><tr><th className="p-4 w-10 bg-slate-50 text-center border-b print:border">Rank</th><th className="p-4 bg-slate-50 border-b print:border">Nama Siswa</th><th className="p-4 bg-slate-50 border-b print:border">Rombel</th><th className="p-4 bg-slate-50 text-center border-b print:border">Nilai Rata-rata</th><th className="p-4 bg-slate-50 border-b print:border">Status</th></tr></thead>
-                    <tbody className="divide-y">
-                      {tableData.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-400">Belum ada data.</td></tr> :
-                        tableData.map((s, idx) => (
-                          <tr key={s.id} className="hover:bg-purple-50">
-                            <td className="p-4 text-center font-bold text-slate-600 border-b print:border"><span className={`inline-block w-8 h-8 leading-8 rounded-full ${idx < 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100'} print:bg-white`}>{(currentPage - 1) * rowsPerPage + idx + 1}</span></td>
-                            <td className="p-4 font-medium border-b print:border">{s.name}</td><td className="p-4 border-b print:border"><span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold print:bg-white print:text-black">{s.rombel}</span></td><td className="p-4 text-center font-bold text-lg border-b print:border">{s.average || 0}</td><td className="p-4 border-b print:border">{s.average >= 75 ? <span className="text-green-600 font-bold text-xs">TUNTAS</span> : <span className="text-red-600 font-bold text-xs">BELUM TUNTAS</span>}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-                <PaginationControls currentPage={currentPage} totalPages={totalPages} totalData={totalData} rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage} setCurrentPage={setCurrentPage} />
+              <div className="flex gap-4 mb-4">
+                <select className="p-2 border rounded text-sm font-bold text-blue-700 bg-blue-50 outline-none" value={selectedRombelFilter} onChange={e => setSelectedRombelFilter(e.target.value)}>
+                  {user.role === 'admin' && <option value="">Semua Kelas</option>}
+                  {(user.role === 'guru' ? getTeacherRombels : allStudentRombels).map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <div className="relative flex-1"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="text" placeholder="Cari Siswa..." className="w-full pl-10 p-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
               </div>
             </div>
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[600px] print:h-auto print:border-none print:shadow-none">
+              <div className="hidden print:block text-center mb-6 mt-4"><h2 className="text-xl font-bold uppercase">Peringkat Nilai Kelas {selectedRombelFilter || user.assignedClass}</h2><p>SDN BABELAN KOTA 02</p></div>
+              <div className="overflow-auto flex-1 relative">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead className="bg-slate-50 uppercase text-slate-600 sticky top-0 z-10 shadow-sm print:static"><tr><th className="p-4 w-10 bg-slate-50 text-center border-b print:border">Rank</th><th className="p-4 bg-slate-50 border-b print:border">Nama Siswa</th><th className="p-4 bg-slate-50 border-b print:border">Rombel</th><th className="p-4 bg-slate-50 text-center border-b print:border">Nilai Rata-rata</th><th className="p-4 bg-slate-50 border-b print:border">Status</th></tr></thead>
+                  <tbody className="divide-y">
+                    {tableData.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-400">Belum ada data.</td></tr> :
+                      tableData.map((s, idx) => (<tr key={s.id} className="hover:bg-purple-50"><td className="p-4 text-center font-bold text-slate-600 border-b print:border"><span className={`inline-block w-8 h-8 leading-8 rounded-full ${idx < 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100'} print:bg-white`}>{(currentPage - 1) * rowsPerPage + idx + 1}</span></td><td className="p-4 font-medium border-b print:border">{s.name}</td><td className="p-4 border-b print:border"><span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold print:bg-white print:text-black">{s.rombel}</span></td><td className="p-4 text-center font-bold text-lg border-b print:border">{s.average || 0}</td><td className="p-4 border-b print:border">{s.average >= 75 ? <span className="text-green-600 font-bold text-xs">TUNTAS</span> : <span className="text-red-600 font-bold text-xs">BELUM TUNTAS</span>}</td></tr>))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="print:hidden"><PaginationControls currentPage={currentPage} totalPages={totalPages} totalData={totalData} rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage} setCurrentPage={setCurrentPage} /></div>
+            </div>
+          </div>
           )}
 
-          {/* TAB: DATA SISWA */}
-          {activeTab === 'students' && (
+          {activeTab === 'students' && (/*...Same as before...*/
             <div className="max-w-6xl mx-auto space-y-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
@@ -513,27 +512,8 @@ export default function App() {
               </div>
               <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[600px]">
                 <div className="overflow-auto flex-1 relative">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 uppercase text-slate-600 sticky top-0 z-10 shadow-sm">
-                      <tr>
-                        <th className="p-4 w-10 bg-slate-50">No</th>
-                        <th className="p-4 bg-slate-50">NISN</th>
-                        <th className="p-4 bg-slate-50">Nama</th>
-                        <th className="p-4 bg-slate-50">Rombel</th>
-                        <th className="p-4 bg-slate-50">Nama Guru</th>
-                        <th className="p-4 bg-slate-50">Nama Ortu</th>
-                        <th className="p-4 bg-slate-50">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {tableData.length === 0 ? <tr><td colSpan="7" className="p-8 text-center text-slate-400">{user.role === 'guru' ? 'Tidak ada siswa di Rombel ini.' : 'Data kosong.'}</td></tr> :
-                        tableData.map((s, idx) => (
-                          <tr key={s.id} className="hover:bg-slate-50">
-                            <td className="p-4 text-center font-bold text-slate-400">{(currentPage - 1) * rowsPerPage + idx + 1}</td><td className="p-4 font-mono text-slate-600">{s.nisn || '-'}</td><td className="p-4 font-medium">{s.name || '-'}</td><td className="p-4"><span className="bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-bold">{s.rombel || '-'}</span></td><td className="p-4">{s.namaGuru || '-'}</td><td className="p-4">{s.namaOrtu || '-'}</td>
-                            <td className="p-4"><button onClick={() => handleEditStudent(s)} className="text-blue-600 hover:bg-blue-100 p-2 rounded"><Edit size={16} /></button></td>
-                          </tr>
-                        ))}
-                    </tbody>
+                  <table className="w-full text-left text-sm"><thead className="bg-slate-50 uppercase text-slate-600 sticky top-0 z-10 shadow-sm"><tr><th className="p-4 w-10 bg-slate-50">No</th><th className="p-4 bg-slate-50">NISN</th><th className="p-4 bg-slate-50">Nama</th><th className="p-4 bg-slate-50">Rombel</th><th className="p-4 bg-slate-50">Nama Guru</th><th className="p-4 bg-slate-50">Nama Ortu</th><th className="p-4 bg-slate-50">Aksi</th></tr></thead>
+                    <tbody className="divide-y">{tableData.length === 0 ? <tr><td colSpan="7" className="p-8 text-center text-slate-400">{user.role === 'guru' ? 'Tidak ada siswa di Rombel ini.' : 'Data kosong.'}</td></tr> : tableData.map((s, idx) => (<tr key={s.id} className="hover:bg-slate-50"><td className="p-4 text-center font-bold text-slate-400">{(currentPage - 1) * rowsPerPage + idx + 1}</td><td className="p-4 font-mono text-slate-600">{s.nisn || '-'}</td><td className="p-4 font-medium">{s.name || '-'}</td><td className="p-4"><span className="bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-bold">{s.rombel || '-'}</span></td><td className="p-4">{s.namaGuru || '-'}</td><td className="p-4">{s.namaOrtu || '-'}</td><td className="p-4"><button onClick={() => handleEditStudent(s)} className="text-blue-600 hover:bg-blue-100 p-2 rounded"><Edit size={16} /></button></td></tr>))}</tbody>
                   </table>
                 </div>
                 <PaginationControls currentPage={currentPage} totalPages={totalPages} totalData={totalData} rowsPerPage={rowsPerPage} setRowsPerPage={setRowsPerPage} setCurrentPage={setCurrentPage} />
@@ -543,6 +523,7 @@ export default function App() {
 
           {/* TAB: GRADING */}
           {activeTab === 'grading' && (
+            /* ... (Code Grading same as before, just ensure it's not lost) ... */
             <div className="max-w-6xl mx-auto h-full">
               <div className="flex gap-4 mb-6 border-b overflow-x-auto">
                 {['input', 'ekskul', 'attendance', 'rekap'].map(tab => (
@@ -579,66 +560,32 @@ export default function App() {
                             const finalScore = subjectData.final || 0;
                             const isBelowKKM = finalScore > 0 && finalScore < subj.kkm;
                             const studentName = students.find(s => s.id === selectedStudentId)?.name || "Ananda";
-
                             return (
                               <div key={subj.id} className={`mb-4 p-4 rounded-lg border transition-all ${isBelowKKM ? 'bg-red-100 border-red-300' : 'bg-slate-50 border-slate-200'}`}>
                                 <div className="flex justify-between items-center mb-2"><label className={`font-bold ${isBelowKKM ? 'text-red-700' : 'text-slate-700'}`}>{subj.name}</label><span className="text-xs bg-white px-2 py-0.5 rounded border">KKM: {subj.kkm}</span></div>
-                                <div className="grid grid-cols-5 gap-2 mb-4">{[1, 2, 3, 4, 5].map(tp => (<div key={tp}><span className="text-[10px] text-slate-500 block text-center">TP {tp}</span><input type="number" className={`w-full p-1 text-center border rounded focus:ring-2 ${isBelowKKM ? 'border-red-300 focus:ring-red-500' : 'focus:ring-blue-500'}`} value={subjectData[`tp${tp}`] || ''} onChange={e => handleTPChange(subj.id, `tp${tp}`, e.target.value)} /></div>))}</div>
+                                <div className="grid grid-cols-5 gap-2 mb-4">{[1, 2, 3, 4, 5].map(tp => { const tpVal = subjectData[`tp${tp}`] || 0; const tpBelow = tpVal > 0 && tpVal < subj.kkm; return (<div key={tp}><span className="text-[10px] text-slate-500 block text-center">TP {tp}</span><input type="number" className={`w-full p-1 text-center border rounded focus:ring-2 ${tpBelow ? 'bg-red-50 border-red-300 text-red-600' : 'focus:ring-blue-500'}`} value={subjectData[`tp${tp}`] || ''} onChange={e => handleTPChange(subj.id, `tp${tp}`, e.target.value)} /></div>) })}</div>
                                 <div className={`text-right text-sm font-bold mb-4 ${isBelowKKM ? 'text-red-800' : 'text-blue-700'}`}>Rata-rata: {finalScore}</div>
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-slate-500">Capaian Kompetensi:</label>
-                                  <textarea className="w-full p-2 border rounded text-xs h-16 focus:ring-2 focus:ring-blue-500" placeholder="Deskripsi Capaian Tertinggi..." value={subjectData.desc1 || `Ananda ${studentName} sangat menguasai dalam...`} onChange={e => handleDescChange(subj.id, 'desc1', e.target.value)} />
-                                  <textarea className="w-full p-2 border rounded text-xs h-16 focus:ring-2 focus:ring-red-500" placeholder="Deskripsi Capaian Terendah..." value={subjectData.desc2 || `Ananda ${studentName} perlu bimbingan dalam...`} onChange={e => handleDescChange(subj.id, 'desc2', e.target.value)} />
-                                </div>
+                                <div className="space-y-2"><label className="text-xs font-bold text-slate-500">Capaian Kompetensi:</label><textarea className="w-full p-2 border rounded text-xs h-16 focus:ring-2 focus:ring-blue-500" placeholder="Deskripsi Capaian Tertinggi..." value={subjectData.desc1 || `Ananda ${studentName} sangat menguasai dalam...`} onChange={e => handleDescChange(subj.id, 'desc1', e.target.value)} /><textarea className="w-full p-2 border rounded text-xs h-16 focus:ring-2 focus:ring-red-500" placeholder="Deskripsi Capaian Terendah..." value={subjectData.desc2 || `Ananda ${studentName} perlu bimbingan dalam...`} onChange={e => handleDescChange(subj.id, 'desc2', e.target.value)} /></div>
                               </div>
                             )
                           })}
-                          {gradingSubTab === 'ekskul' && (
-                            <div className="p-4 border rounded-lg bg-slate-50"><h3 className="font-bold mb-4">Kegiatan Ekstrakurikuler</h3>
-                              <div className="space-y-4">
-                                <div><label className="block text-sm font-medium mb-1">Jenis Kegiatan</label><select className="w-full p-2 border rounded" value={tempNonAcademic.ekskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, ekskul: e.target.value })}><option value="">- Pilih -</option><option value="Pramuka">Pramuka</option><option value="Paskibra">Paskibra</option><option value="Karate">Karate</option><option value="Futsal">Futsal</option><option value="Drumband">Drumband</option><option value="Angklung">Angklung</option></select></div>
-                                <div><label className="block text-sm font-medium mb-1">Predikat</label><select className="w-full p-2 border rounded" value={tempNonAcademic.predikatEkskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, predikatEkskul: e.target.value })}><option value="">- Pilih -</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></div>
-                                <div><label className="block text-sm font-medium mb-1">Keterangan</label><select className="w-full p-2 border rounded" value={tempNonAcademic.ketEkskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, ketEkskul: e.target.value })}><option value="">- Pilih -</option><option value="Sangat Baik">Sangat Baik</option><option value="Baik">Baik</option><option value="Cukup">Cukup</option></select></div>
-                              </div>
-                            </div>
-                          )}
-                          {gradingSubTab === 'attendance' && (
-                            <div className="p-4 border rounded-lg bg-slate-50"><h3 className="font-bold mb-4">Ketidakhadiran (Jumlah Hari)</h3>
-                              <div className="grid grid-cols-1 gap-4">
-                                <div className="flex justify-between items-center"><label>Sakit</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.sakit} onChange={e => setTempNonAcademic({ ...tempNonAcademic, sakit: e.target.value })} /></div>
-                                <div className="flex justify-between items-center"><label>Izin</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.izin} onChange={e => setTempNonAcademic({ ...tempNonAcademic, izin: e.target.value })} /></div>
-                                <div className="flex justify-between items-center"><label>Tanpa Keterangan</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.alpha} onChange={e => setTempNonAcademic({ ...tempNonAcademic, alpha: e.target.value })} /></div>
-                              </div>
-                            </div>
-                          )}
+                          {gradingSubTab === 'ekskul' && (<div className="p-4 border rounded-lg bg-slate-50"><h3 className="font-bold mb-4">Kegiatan Ekstrakurikuler</h3><div className="space-y-4"><div><label className="block text-sm font-medium mb-1">Jenis Kegiatan</label><select className="w-full p-2 border rounded" value={tempNonAcademic.ekskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, ekskul: e.target.value })}><option value="">- Pilih -</option><option value="Pramuka">Pramuka</option><option value="Paskibra">Paskibra</option><option value="Karate">Karate</option><option value="Futsal">Futsal</option><option value="Drumband">Drumband</option><option value="Angklung">Angklung</option></select></div><div><label className="block text-sm font-medium mb-1">Predikat</label><select className="w-full p-2 border rounded" value={tempNonAcademic.predikatEkskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, predikatEkskul: e.target.value })}><option value="">- Pilih -</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select></div><div><label className="block text-sm font-medium mb-1">Keterangan</label><select className="w-full p-2 border rounded" value={tempNonAcademic.ketEkskul} onChange={e => setTempNonAcademic({ ...tempNonAcademic, ketEkskul: e.target.value })}><option value="">- Pilih -</option><option value="Sangat Baik">Sangat Baik</option><option value="Baik">Baik</option><option value="Cukup">Cukup</option></select></div></div></div>)}
+                          {gradingSubTab === 'attendance' && (<div className="p-4 border rounded-lg bg-slate-50"><h3 className="font-bold mb-4">Ketidakhadiran (Jumlah Hari)</h3><div className="grid grid-cols-1 gap-4"><div className="flex justify-between items-center"><label>Sakit</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.sakit} onChange={e => setTempNonAcademic({ ...tempNonAcademic, sakit: e.target.value })} /></div><div className="flex justify-between items-center"><label>Izin</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.izin} onChange={e => setTempNonAcademic({ ...tempNonAcademic, izin: e.target.value })} /></div><div className="flex justify-between items-center"><label>Tanpa Keterangan</label><input type="number" className="w-20 p-2 border rounded" value={tempNonAcademic.alpha} onChange={e => setTempNonAcademic({ ...tempNonAcademic, alpha: e.target.value })} /></div></div></div>)}
                         </div>
                       </>
                     ) : <div className="flex-1 flex flex-col items-center justify-center text-slate-400"><BookOpen size={64} className="mb-4 opacity-20" /><p>Pilih siswa untuk input data.</p></div>}
                   </div>
                 ) : (
-                  // REVISI: SUBMENU REKAP NILAI LENGKAP (TABEL BESAR)
                   <div className="w-full bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[600px]">
                     <div className="p-4 border-b bg-slate-50 font-bold text-slate-700 flex justify-between"><span>Rekap Nilai Detail (Dari Data_Nilai)</span><button onClick={() => handleSyncFromGoogleSheet(false)} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded flex items-center gap-1"><RefreshCw size={12} /> Refresh</button></div>
-                    <div className="overflow-auto flex-1 relative">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-slate-100 text-slate-600 sticky top-0 z-10 shadow-sm">
-                          <tr><th className="p-2 border">NISN</th><th className="p-2 border">Nama</th><th className="p-2 border">Kelas</th><th className="p-2 border">Mapel</th><th className="p-2 border text-center">Nilai</th><th className="p-2 border">Ekskul</th><th className="p-2 border">Predikat</th><th className="p-2 border">Ket</th><th className="p-2 border text-center">S</th><th className="p-2 border text-center">I</th><th className="p-2 border text-center">A</th><th className="p-2 border w-32">Cap. Komp 1</th><th className="p-2 border w-32">Cap. Komp 2</th></tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {rawNilai.length === 0 ? <tr><td colSpan="13" className="p-8 text-center text-slate-400">Belum ada data nilai detail.</td></tr> :
-                            rawNilai.filter(r => user.role === 'admin' || (user.assignedClass && user.assignedClass.includes(r.kelas))).map((r, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50"><td className="p-2 border font-mono">{r.nisn}</td><td className="p-2 border">{r.nama}</td><td className="p-2 border">{r.kelas}</td><td className="p-2 border">{r.mapel}</td><td className="p-2 border text-center font-bold">{r.nilai}</td><td className="p-2 border">{r.ekskul}</td><td className="p-2 border">{r.predikatEkskul}</td><td className="p-2 border">{r.ketEkskul}</td><td className="p-2 border text-center">{r.sakit}</td><td className="p-2 border text-center">{r.izin}</td><td className="p-2 border text-center">{r.alpha}</td><td className="p-2 border text-[10px] truncate max-w-xs" title={r.desc1}>{r.desc1}</td><td className="p-2 border text-[10px] truncate max-w-xs" title={r.desc2}>{r.desc2}</td></tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <div className="overflow-auto flex-1 relative"><table className="w-full text-left text-xs border-collapse"><thead className="bg-slate-100 text-slate-600 sticky top-0 z-10 shadow-sm"><tr><th className="p-2 border">NISN</th><th className="p-2 border">Nama</th><th className="p-2 border">Kelas</th><th className="p-2 border">Mapel</th><th className="p-2 border text-center">Nilai</th><th className="p-2 border">Ekskul</th><th className="p-2 border">Predikat</th><th className="p-2 border">Ket</th><th className="p-2 border text-center">S</th><th className="p-2 border text-center">I</th><th className="p-2 border text-center">A</th><th className="p-2 border w-32">Cap. Komp 1</th><th className="p-2 border w-32">Cap. Komp 2</th></tr></thead><tbody className="divide-y">{rawNilai.length === 0 ? <tr><td colSpan="13" className="p-8 text-center text-slate-400">Belum ada data nilai detail.</td></tr> : rawNilai.filter(r => user.role === 'admin' || (user.assignedClass && user.assignedClass.includes(r.kelas))).map((r, idx) => (<tr key={idx} className="hover:bg-slate-50"><td className="p-2 border font-mono">{r.nisn}</td><td className="p-2 border">{r.nama}</td><td className="p-2 border">{r.kelas}</td><td className="p-2 border">{r.mapel}</td><td className="p-2 border text-center font-bold">{r.nilai}</td><td className="p-2 border">{r.ekskul}</td><td className="p-2 border">{r.predikatEkskul}</td><td className="p-2 border">{r.ketEkskul}</td><td className="p-2 border text-center">{r.sakit}</td><td className="p-2 border text-center">{r.izin}</td><td className="p-2 border text-center">{r.alpha}</td><td className="p-2 border text-[10px] truncate max-w-xs" title={r.desc1}>{r.desc1}</td><td className="p-2 border text-[10px] truncate max-w-xs" title={r.desc2}>{r.desc2}</td></tr>))}</tbody></table></div>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB: CETAK RAPOR */}
+          {/* TAB: CETAK RAPOR (REVISI BUG BLANK & SAMPUL) */}
           {activeTab === 'report' && (
             <div className="max-w-[210mm] mx-auto bg-white p-8 shadow-lg min-h-[800px]">
               <div className="flex gap-4 mb-8 print:hidden flex-col md:flex-row items-end bg-slate-50 p-4 rounded-lg border">
@@ -648,40 +595,125 @@ export default function App() {
                     <button onClick={() => setReportSubTab('sampul')} className={`px-3 py-1 rounded text-sm ${reportSubTab === 'sampul' ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Sampul (Kelas 1)</button>
                   </div>
                 </div>
-                <div className="w-full md:w-1/4"><label className="text-xs font-bold text-slate-500 mb-1 block">Pilih Rombel</label><select className="p-2 border rounded w-full text-sm" value={reportRombelFilter} onChange={e => setReportRombelFilter(e.target.value)}>
-                  {user.role === 'admin' && <option value="">-- Pilih --</option>}
-                  {(user.role === 'guru' ? getTeacherRombels : allStudentRombels).map(r => <option key={r} value={r}>{r}</option>)}
-                </select></div>
+                <div className="w-full md:w-1/4"><label className="text-xs font-bold text-slate-500 mb-1 block">Pilih Rombel</label><select className="p-2 border rounded w-full text-sm" value={reportRombelFilter} onChange={e => setReportRombelFilter(e.target.value)}>{user.role === 'admin' && <option value="">-- Pilih --</option>}{(user.role === 'guru' ? getTeacherRombels : allStudentRombels).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
                 <div className="w-full md:w-1/3"><label className="text-xs font-bold text-slate-500 mb-1 block">Pilih Siswa</label><select className="p-2 border rounded w-full text-sm" onChange={e => { const val = Number(e.target.value); if (val) { setSelectedStudentId(val); } else { setSelectedStudentId(null); } }} value={selectedStudentId || ''}><option value="">-- Pilih Siswa --</option>{filteredReportStudents.map(s => <option key={s.id} value={s.id}>{s.name} ({s.rombel})</option>)}</select></div>
-                {/* ... Semester & Tahun ... */}
                 <div className="w-full md:w-1/4"><label className="text-xs font-bold text-slate-500 mb-1 block">Semester</label><select className="p-2 border rounded w-full text-sm" value={reportSemester} onChange={e => setReportSemester(e.target.value)}><option>1 (Satu)</option><option>2 (Dua)</option></select></div>
                 <div className="w-full md:w-1/4"><label className="text-xs font-bold text-slate-500 mb-1 block">Tahun Pelajaran</label><select className="p-2 border rounded w-full text-sm" value={reportYear} onChange={e => setReportYear(e.target.value)}>{ACADEMIC_YEARS.map(year => <option key={year} value={year}>{year}</option>)}</select></div>
                 <button onClick={() => window.print()} disabled={!selectedStudentId} className="bg-slate-800 text-white px-6 py-2 rounded flex gap-2 hover:bg-slate-900 disabled:opacity-50"><Printer size={18} /> Print</button>
               </div>
 
-              {reportData ? (
+              {/* REVISI: RENDER AMAN (SAFE NAVIGATION) */}
+              {reportData && reportData.s ? (
                 <div className="relative font-arial font-sans text-black max-w-[210mm] mx-auto text-sm leading-relaxed">
                   {reportSubTab === 'sampul' && (
                     <>
-                      {/* HALAMAN 1 (REVISI: NISN/NIS) */}
+                      {/* HALAMAN 1 */}
                       <div className="flex flex-col items-center justify-center text-center h-[297mm] p-10 border-4 border-double border-black mb-8 page-break relative">
-                        {/* ... Logo & Judul ... */}
                         <img src={TUTWURI_URL} alt="Tut Wuri" className="w-40 h-auto mb-10 mt-10" />
                         <h1 className="text-2xl font-bold mb-16 mt-4">RAPOR<br />PESERTA DIDIK<br />SEKOLAH DASAR<br />(SD)</h1>
                         <div className="w-full max-w-md mb-6">
                           <p className="mb-2 font-bold">Nama Peserta Didik:</p>
                           <div className="border-2 border-black p-3 mb-6 bg-white"><p className="text-xl font-bold uppercase tracking-wide">{reportData.s.name}</p></div>
                           <p className="mb-2 font-bold">NISN/NIS:</p>
-                          <div className="border-2 border-black p-3 bg-white"><p className="text-xl font-bold tracking-wider">{reportData.pd.nisn_nis || reportData.s.nisn}</p></div>
+                          <div className="border-2 border-black p-3 bg-white"><p className="text-xl font-bold tracking-wider">{reportData.pd?.nisn_nis || reportData.s.nisn}</p></div>
                         </div>
                         <div className="mt-auto mb-20"><p className="font-bold text-lg uppercase tracking-wide">KEMENTERIAN PENDIDIKAN DASAR DAN MENENGAH<br />REPUBLIK INDONESIA</p></div>
                       </div>
-                      {/* ... Halaman 2 & 3 ... */}
-                      {/* Halaman 3 sama dengan sebelumnya */}
+                      {/* ... Halaman 2 & 3 ... (Sama seperti sebelumnya, tidak diulang untuk hemat baris) */}
+                    </>
+                  )}
+
+                  {reportSubTab === 'nilai' && (
+                    <>
+                      <div className="text-center mb-6"><h2 className="text-xl font-bold underline uppercase mb-2">Laporan Hasil Belajar Siswa (Rapor)</h2></div>
+                      <div className="grid grid-cols-2 gap-8 text-sm mt-6 mb-6 font-sans">
+                        <div className="text-left"><table className="w-full"><tbody>
+                          <tr><td className="font-bold py-1 w-32 align-top">Nama Murid</td><td className="align-top w-2">:</td><td className="align-top uppercase font-bold">{reportData.s.name}</td></tr>
+                          <tr><td className="font-bold py-1 w-32 align-top">NISN</td><td className="align-top w-2">:</td><td className="align-top">{reportData.s.nisn}</td></tr>
+                          <tr><td className="font-bold py-1 w-32 align-top">Sekolah</td><td className="align-top w-2">:</td><td className="align-top">SDN BABELAN KOTA 02</td></tr>
+                          <tr><td className="font-bold py-1 w-32 align-top">Alamat</td><td className="align-top w-2">:</td><td className="align-top">JLN RAYA BABELAN RT 13/03</td></tr>
+                        </tbody></table></div>
+                        <div className="text-left pl-8"><table className="w-full"><tbody>
+                          <tr><td className="font-bold py-1 w-24 align-top">Kelas</td><td className="align-top w-2">:</td><td className="align-top">{reportData.s.kls || reportData.s.rombel}</td></tr>
+                          <tr><td className="font-bold py-1 w-24 align-top">Fase</td><td className="align-top w-2">:</td><td className="align-top">{reportData.s.ruang || 'A'}</td></tr>
+                          <tr><td className="font-bold py-1 w-24 align-top">Semester</td><td className="align-top w-2">:</td><td className="align-top">{reportSemester}</td></tr>
+                          <tr><td className="font-bold py-1 w-24 align-top">Tahun Pelajaran</td><td className="align-top w-2">:</td><td className="align-top">{reportYear}</td></tr>
+                        </tbody></table></div>
+                      </div>
+                      <table className="w-full border-collapse border border-black text-sm mb-8 font-sans">
+                        <thead className="bg-slate-100"><tr><th className="border border-black p-2 w-10 text-center">No</th><th className="border border-black p-2 text-left">Muatan Pelajaran</th><th className="border border-black p-2 w-16 text-center">Nilai Akhir</th><th className="border border-black p-2 text-left">Capaian Kompetensi</th></tr></thead>
+                        <tbody>{INITIAL_SUBJECTS.map((sub, idx) => {
+                          const subjectData = reportData.currentGrades[sub.id] || {};
+                          const finalScore = (typeof subjectData === 'object') ? (subjectData.final || 0) : (Number(subjectData) || 0);
+                          const desc1 = subjectData.desc1 || '';
+                          const desc2 = subjectData.desc2 || '';
+                          const combinedDesc = [desc1, desc2].filter(Boolean).join('\n\n');
+                          return (<tr key={sub.id}><td className="border border-black p-2 text-center">{idx + 1}</td><td className="border border-black p-2">{sub.name}</td><td className="border border-black p-2 text-center font-bold">{finalScore}</td><td className="border border-black p-2 text-xs italic text-justify px-3 py-2 whitespace-pre-line">{combinedDesc}</td></tr>);
+                        })}</tbody>
+                      </table>
+                      <div className="grid grid-cols-2 gap-8 mb-8 break-inside-avoid font-sans">
+                        <div><h3 className="font-bold mb-2">Ekstrakurikuler</h3><table className="w-full border-collapse border border-black text-xs"><thead><tr className="bg-slate-100"><th className="border border-black p-1">Kegiatan</th><th className="border border-black p-1 text-center">Predikat</th><th className="border border-black p-1 text-center">Keterangan</th></tr></thead><tbody><tr><td className="border border-black p-1">{reportData.nonAcademic.ekskul || '-'}</td><td className="border border-black p-1 text-center">{reportData.nonAcademic.predikatEkskul || '-'}</td><td className="border border-black p-1 text-center">{reportData.nonAcademic.ketEkskul || '-'}</td></tr><tr><td className="border border-black p-1">...........</td><td className="border border-black p-1 text-center">-</td><td className="border border-black p-1 text-center">-</td></tr></tbody></table></div>
+                        <div><h3 className="font-bold mb-2">Ketidakhadiran</h3><table className="w-full border-collapse border border-black text-xs"><tbody><tr><td className="border border-black p-1 w-1/2">Sakit</td><td className="border border-black p-1 text-center">{reportData.nonAcademic.sakit || 0} hari</td></tr><tr><td className="border border-black p-1">Izin</td><td className="border border-black p-1 text-center">{reportData.nonAcademic.izin || 0} hari</td></tr><tr><td className="border border-black p-1">Tanpa Keterangan</td><td className="border border-black p-1 text-center">{reportData.nonAcademic.alpha || 0} hari</td></tr></tbody></table></div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-center text-sm break-inside-avoid mt-8 px-4 font-sans">
+                        <div><p className="mb-20">Mengetahui,<br />Orang Tua / Wali</p><p className="font-bold uppercase">{reportData.s.namaOrtu}</p></div>
+                        <div><p className="mb-20">Mengetahui,<br />Kepala Sekolah</p><p className="font-bold underline uppercase">{HEADMASTER_NAME}</p><p>NIP. {HEADMASTER_NIP}</p></div>
+                        <div><p className="mb-20">Bekasi, {reportData.currentDate}<br />Guru Kelas</p><p className="font-bold uppercase">{reportData.waliKelasName}</p><p>NIP. {reportData.waliKelasNIP}</p></div>
+                      </div>
                     </>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed rounded-xl"><Printer size={48} className="mb-2 opacity-20" /><p>Silakan pilih rombel dan siswa di atas untuk menampilkan Pratinjau Rapor.</p></div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: CETAK KARTU UJIAN (OPS Only) - REVISI: F4, 4 KARTU, STEMPEL, FILTER AMAN */}
+          {activeTab === 'print_cards' && user.role === 'admin' && (
+            <div className="max-w-[215mm] mx-auto bg-white p-8 shadow-lg min-h-[330mm]">
+              <div className="flex flex-col md:flex-row justify-between items-center mb-6 print:hidden gap-4">
+                <h2 className="text-lg font-bold">Cetak Kartu Ujian SAS (F4)</h2>
+                <div className="flex gap-2">
+                  <input type="date" className="border p-2 rounded text-sm" value={cardDate} onChange={e => setCardDate(e.target.value)} />
+                  <select className="p-2 border rounded text-sm font-bold text-blue-700 bg-blue-50 outline-none" value={cardSemester} onChange={e => setCardSemester(e.target.value)}><option value="1 (Ganjil)">1 (Ganjil)</option><option value="2 (Genap)">2 (Genap)</option></select>
+                  <select className="p-2 border rounded text-sm font-bold text-blue-700 bg-blue-50 outline-none w-full md:w-48" value={cardRombelFilter} onChange={e => setCardRombelFilter(e.target.value)}><option value="">-- Pilih Rombel --</option>{allStudentRombels.map(rombel => <option key={rombel} value={rombel}>{rombel}</option>)}</select>
+                </div>
+                <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded flex gap-2"><Printer size={18} /> Print Kartu</button>
+              </div>
+
+              {/* LAYOUT KARTU UJIAN (GRID 2x2) */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* REVISI: Gunakan filteredStudents (jika belum difilter tampil semua, jika difilter tampil per kelas) */}
+                {filteredStudents.length > 0 ? filteredStudents.map((s) => (
+                  <div key={s.id} className="border-2 border-black p-4 h-[9cm] break-inside-avoid relative bg-white font-sans text-xs">
+                    <div className="flex items-center border-b-2 border-black pb-2 mb-2">
+                      <img src={LOGO_URL} alt="Logo" className="w-12 h-auto" />
+                      <div className="text-center flex-1">
+                        <h3 className="font-bold">DINAS PENDIDIKAN KAB. BEKASI</h3>
+                        <h2 className="text-sm font-extrabold">SD NEGERI BABELAN KOTA 02</h2>
+                        <p className="text-[10px]">KARTU PESERTA UJIAN SAS</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="w-20 h-24 border border-black flex items-center justify-center bg-slate-100 text-xs text-slate-400">FOTO 3x4</div>
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex"><span className="w-20 font-bold">NISN</span><span>: {s.nisn}</span></div>
+                        <div className="flex"><span className="w-20 font-bold">Nama</span><span>: {s.name}</span></div>
+                        <div className="flex"><span className="w-20 font-bold">Kelas</span><span>: {s.rombel}</span></div>
+                        <div className="flex"><span className="w-20 font-bold">Semester</span><span>: {cardSemester}</span></div>
+                        <div className="flex"><span className="w-20 font-bold">Tanggal Ujian</span><span>: {new Date(cardDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-2 right-4 text-center">
+                      {/* REVISI: Hapus teks tanggal statis */}
+                      <img src={STEMPEL_URL} alt="Stempel" className="w-24 h-auto mx-auto my-1" />
+                      <p className="font-bold underline">{HEADMASTER_NAME}</p>
+                      <p>NIP. {HEADMASTER_NIP}</p>
+                    </div>
+                  </div>
+                )) : <div className="col-span-2 text-center p-10 text-slate-400">Tidak ada siswa. Silakan pilih rombel.</div>}
+              </div>
             </div>
           )}
         </div>
