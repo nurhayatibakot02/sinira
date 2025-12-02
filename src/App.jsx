@@ -12,6 +12,7 @@ import {
 // =================================================================
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxzn0ZX8J0GwmQ1BEmkJc5q0wKGW5BI9o20Trx8MFcnsyvE3ezCtTGZh42fQUPHZV8tfA/exec";
 const LOGO_URL = "https://freeimghost.com/images/2025/11/21/fococlipping-20220208-133942.th.png";
+const KARTU_URL = "https://freeimghost.com/images/2025/11/20/Kabupaten-Bekasi.th.png";
 const STEMPEL_URL = "https://freeimghost.com/images/2025/11/26/STEMPEL-KEPSEK.th.png";
 const TUTWURI_URL = "https://freeimghost.com/images/2025/11/26/tutwuri.jpeg";
 
@@ -748,7 +749,7 @@ export default function App() {
                     {chunk.map((s) => (
                       <div key={s.id} className="border-2 border-black p-4 h-[9cm] relative bg-white font-sans text-xs break-inside-avoid">
                         <div className="flex items-center border-b-2 border-black pb-2 mb-2">
-                          <img src={LOGO_URL} alt="Logo" className="w-12 h-auto" />
+                          <img src={KARTU_URL} alt="Logo" className="w-12 h-auto" />
                           <div className="text-center flex-1">
                             <h3 className="font-bold">DINAS PENDIDIKAN KAB. BEKASI</h3>
                             <h2 className="text-sm font-extrabold">SD NEGERI BABELAN KOTA 02</h2>
